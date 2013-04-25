@@ -24,12 +24,15 @@ import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.CameraBridgeViewBase.CvCameraViewListener2;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.graphics.Bitmap;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Message;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MotionEvent;
@@ -45,8 +48,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.ToggleButton;
 
-public class MainActivity extends Activity implements
-		CvCameraViewListener2 {
+public class MainActivity extends Activity implements CvCameraViewListener2 {
 	private static final String TAG = "OCVSample::Activity";
 	private CameraBridgeViewBase mOpenCvCameraView;
 
@@ -71,7 +73,6 @@ public class MainActivity extends Activity implements
 		Log.i(TAG, "Instantiated new " + this.getClass());
 	}
 
-	TextView info;
 	ImageView matchDrawArea;
 	Button addBtn;
 
@@ -83,10 +84,9 @@ public class MainActivity extends Activity implements
 		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
 		setContentView(R.layout.main_layout);
-		info = (TextView) findViewById(R.id.textView1);
-		matchDrawArea = (ImageView) findViewById(R.id.aqImage);
+		matchDrawArea = (ImageView) findViewById(R.id.refImageView);
 		addBtn = (Button) findViewById(R.id.button1);
-		
+
 		mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.tutorial1_activity_native_surface_view);
 		mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
 
@@ -106,19 +106,20 @@ public class MainActivity extends Activity implements
 			}
 		});
 
-		((ToggleButton) findViewById(R.id.toggleButton2)).setOnCheckedChangeListener(new OnCheckedChangeListener() {
-			@Override
-			public void onCheckedChanged(CompoundButton arg0, boolean arg1) {
-				imageOnly = !arg1;
-			}
-		});
+		((ToggleButton) findViewById(R.id.toggleButton2))
+				.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+					@Override
+					public void onCheckedChanged(CompoundButton arg0,
+							boolean arg1) {
+						imageOnly = !arg1;
+					}
+				});
 
-	
 	}
 
 	boolean resize = false;
 	boolean imageOnly = true;
-	
+
 	@Override
 	public void onPause() {
 		super.onPause();
@@ -241,38 +242,71 @@ public class MainActivity extends Activity implements
 	Scene refScene;
 	ProgressDialog progress;
 
-
 	public void takePic1(View w) {
 		Scene scene = new Scene(last);
 		scenes.add(scene);
-		addBtn.setText("Add (" + scenes.size() + ")"); 
+		addBtn.setText("Add (" + scenes.size() + ")");
 	}
 
 	public void takePic2(View w) {
 		Mat im = last.clone();
 		// Imgproc.cvtColor(im, im, Imgproc.COLOR_BGR2RGB);
-		Bitmap bmp = Bitmap.createBitmap(im.cols(), im.rows(), Bitmap.Config.ARGB_8888);
+		Bitmap bmp = Bitmap.createBitmap(im.cols(), im.rows(),
+				Bitmap.Config.ARGB_8888);
 		Utils.matToBitmap(im, bmp);
 		matchDrawArea.setImageBitmap(bmp);
 		refScene = new Scene(last);
 	}
 
 	public void compareClick(View w) {
-		new BetterComparePics(this).execute();
+		if (scenes.size() == 0) {
+			AlertDialog alertDialog = new AlertDialog.Builder(this).create();
+			alertDialog.setTitle("No scenes.");
+			alertDialog
+					.setMessage("You should add scenes to compare the reference image.");
+			alertDialog.setButton(AlertDialog.BUTTON_POSITIVE, "OK",
+					new DialogInterface.OnClickListener() {
+
+						@Override
+						public void onClick(DialogInterface dialog, int which) {
+							// TODO Auto-generated method stub
+
+						}
+					});
+			alertDialog.show();
+		} else if (refScene == null) {
+			AlertDialog alertDialog = new AlertDialog.Builder(this).create();
+			alertDialog.setTitle("No reference image.");
+			alertDialog.setMessage("You should take a reference image to compare with the scenes you have taken before.");
+			alertDialog.setButton(AlertDialog.BUTTON_POSITIVE, "OK",
+					new DialogInterface.OnClickListener() {
+
+						@Override
+						public void onClick(DialogInterface dialog, int which) {
+							// TODO Auto-generated method stub
+
+						}
+					});
+
+			alertDialog.show();
+
+		} else {
+			new BetterComparePics(this).execute();
+		}
 	}
 
-	public void removeAll(View w){
+	public void removeAll(View w) {
 		scenes.clear();
-		addBtn.setText("Add (" + scenes.size() + ")"); 
+		addBtn.setText("Add (" + scenes.size() + ")");
 	}
-	
-	class BetterComparePics extends AsyncTask<Void, Integer , String> {
+
+	class BetterComparePics extends AsyncTask<Void, Integer, SceneDetectData> {
 		Context context;
-		
+
 		public BetterComparePics(Context context) {
 			this.context = context;
 		}
-		
+
 		@Override
 		protected void onPreExecute() {
 			progress = new ProgressDialog(context);
@@ -284,15 +318,15 @@ public class MainActivity extends Activity implements
 			progress.show();
 			super.onPreExecute();
 		}
-		
+
 		@Override
 		protected void onProgressUpdate(Integer... values) {
-			progress.setProgress(values[0]);			
+			progress.setProgress(values[0]);
 			super.onProgressUpdate(values);
 		}
-		
+
 		@Override
-		protected String doInBackground(Void... params) {
+		protected SceneDetectData doInBackground(Void... params) {
 			long s = System.currentTimeMillis();
 			Scene max = null;
 			SceneDetectData maxData = null;
@@ -300,7 +334,8 @@ public class MainActivity extends Activity implements
 			int idx = -1;
 			for (int i = 0; i < scenes.size(); i++) {
 				Scene scn = scenes.get(i);
-				SceneDetectData data = refScene.compare(scn, ransacEnabled, imageOnly);
+				SceneDetectData data = refScene.compare(scn, ransacEnabled,
+						imageOnly);
 				int currDist;
 				if (ransacEnabled) {
 					currDist = data.homo_matches;
@@ -314,49 +349,50 @@ public class MainActivity extends Activity implements
 					maxDist = currDist;
 					idx = i;
 				}
-				this.publishProgress(i+1);
+				this.publishProgress(i + 1);
 			}
 
 			bmp = maxData.bmp;
 			long e = System.currentTimeMillis();
-			String result = "";
-			result +=   "Matched Image Index: " + idx;
-			result += "\nTotal Matches: " + maxData.original_matches;
-			result += "\nDistance Filtered Matches: " + maxData.dist_matches;
-			result += "\nHomography Filtered Matches: " + maxData.homo_matches;
-			result += "\nElapsed: (" + (e - s) + " ms.)";
-			return result;
+			maxData.elapsed = e - s;
+			maxData.idx = idx;
+
+			return maxData;
 		}
 
 		@Override
-		protected void onPostExecute(String result) {
-			info.setText(result);
+		protected void onPostExecute(SceneDetectData maxData) {
+			// info.setText(result);
 			progress.dismiss();
-			
+
 			final Dialog settingsDialog = new Dialog(context);
 			settingsDialog.getWindow().requestFeature(Window.FEATURE_NO_TITLE);
-			settingsDialog.setContentView(getLayoutInflater().inflate(R.layout.image_layout
-			        , null));
-			ImageView im = (ImageView)settingsDialog.findViewById(R.id.imagePopup);
-			Button dismiss = (Button)settingsDialog.findViewById(R.id.dismissBtn);
-						
+			settingsDialog.setContentView(getLayoutInflater().inflate(
+					R.layout.image_layout, null));
+			ImageView im = (ImageView) settingsDialog
+					.findViewById(R.id.imagePopup);
+			Button dismiss = (Button) settingsDialog
+					.findViewById(R.id.dismissBtn);
+			TextView info = (TextView) settingsDialog
+					.findViewById(R.id.infoText);
+
 			im.setImageBitmap(bmp);
 			dismiss.setOnClickListener(new OnClickListener() {
-				
+
 				@Override
 				public void onClick(View v) {
 					settingsDialog.dismiss();
 				}
 			});
-						
+
+			info.setText(maxData.toString());
+
 			settingsDialog.show();
-			
-			
-			super.onPostExecute(result);
+
+			super.onPostExecute(maxData);
 		}
 	}
 
-	
 	boolean ransacEnabled = false;
 	Bitmap bmp;
 

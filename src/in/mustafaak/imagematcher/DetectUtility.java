@@ -108,15 +108,17 @@ public class DetectUtility {
 		Imgproc.cvtColor(img1, im1, Imgproc.COLOR_BGR2RGB);
 		Imgproc.cvtColor(img2, im2, Imgproc.COLOR_BGR2RGB);
 		if ( imageOnly){
-			MatOfDMatch empty = new MatOfDMatch();
-			Features2d.drawMatches(im1, key1, im2, key2, empty, out);
+			MatOfDMatch emptyMatch = new MatOfDMatch();
+			MatOfKeyPoint emptyKey1 = new MatOfKeyPoint();
+			MatOfKeyPoint emptyKey2 = new MatOfKeyPoint();			
+			Features2d.drawMatches(im1, emptyKey1, im2, emptyKey2, emptyMatch, out);
 		} else {
 			Features2d.drawMatches(im1, key1, im2, key2, matches, out);
 		}
 		Bitmap bmp = Bitmap.createBitmap(out.cols(), out.rows(), Bitmap.Config.ARGB_8888);		
 		Imgproc.cvtColor(out, out, Imgproc.COLOR_BGR2RGB);
-		Core.putText(out, "FRAME", new Point(img1.width() / 2,40), Core.FONT_HERSHEY_PLAIN, 2, new Scalar(255,0,0),3);
-		Core.putText(out, "MATCHED", new Point(img1.width() + img2.width() / 2,40), Core.FONT_HERSHEY_PLAIN, 2, new Scalar(255,255,0),3);
+		Core.putText(out, "FRAME", new Point(img1.width() / 2,30), Core.FONT_HERSHEY_PLAIN, 2, new Scalar(0,255,255),3);
+		Core.putText(out, "MATCHED", new Point(img1.width() + img2.width() / 2,30), Core.FONT_HERSHEY_PLAIN, 2, new Scalar(255,0,0),3);
 		Utils.matToBitmap(out, bmp);
 		return bmp;
 	}
